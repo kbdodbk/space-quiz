@@ -54,6 +54,22 @@
   .emoji { font-size: 64px; animation: bounce 1s ease infinite; }
   .big { font-size: 34px; font-weight: 700; margin: 6px 0; }
   .result p { color: var(--muted); margin: 4px 0 18px; }
+  .review { margin: 20px 0; text-align: left; }
+  .review h2 { margin: 0 0 10px; font-size: 16px; }
+  .review p { margin: 4px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+  .review .missed-question { color: var(--text); font-weight: 600; }
+  .missed-list { display: grid; gap: 10px; margin: 0; padding-left: 24px; }
+  .missed-list li {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--card) 94%, var(--accent));
+    overflow-wrap: anywhere;
+  }
+  #title:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
   [hidden] { display: none !important; }
   #quiz {
     --mission-line: color-mix(in srgb, var(--accent) 24%, var(--border));
@@ -209,8 +225,9 @@
   <section class="result" id="result" hidden>
     <div class="emoji" id="emoji"></div>
     <div class="big" id="final"></div>
-    <h1 id="title"></h1>
+    <h1 id="title" tabindex="-1"></h1>
     <p id="msg"></p>
+    <div class="review" id="review" aria-live="polite"></div>
     <button class="next" id="again">Play again</button>
   </section>
 </main>
@@ -236,7 +253,7 @@ const Q = [
   ["Which planet spins on its side?", ["Uranus","Mars","Venus","Jupiter"], 0],
 ];
 const $ = id => document.getElementById(id);
-let questions, i, score, locked;
+let questions, i, score, locked, answers;
 
 function start() {
   questions = Q.slice();
@@ -244,8 +261,9 @@ function start() {
     const j = Math.floor(Math.random() * (n + 1));
     [questions[n], questions[j]] = [questions[j], questions[n]];
   }
-  i = 0; score = 0;
+  i = 0; score = 0; answers = [];
   $("quiz").hidden = false; $("result").hidden = true;
+  $("review").replaceChildren();
   show();
 }
 function show() {
@@ -269,7 +287,8 @@ function show() {
 function answer(n) {
   if (locked) return;
   locked = true;
-  const right = questions[i][2], btns = $("opts").children;
+  const [question, options, right] = questions[i], btns = $("opts").children;
+  answers.push({ question, selected: options[n], correct: options[right] });
   [...btns].forEach(b => b.disabled = true);
   btns[right].classList.add("correct");
   const fb = $("fb");
@@ -280,11 +299,11 @@ function answer(n) {
   $("next").hidden = false; $("next").focus();
 }
 $("next").onclick = () => { if (++i < Q.length) show(); else finish(); };
-$("again").onclick = start;
 function restartQuiz() {
   start();
   $("opts").firstElementChild.focus();
 }
+$("again").onclick = restartQuiz;
 $("restart").onclick = () => {
   if (i > 0) {
     $("restart-dialog").returnValue = "";
@@ -300,6 +319,7 @@ $("cancel-restart").onclick = () => $("restart-dialog").close("cancel");
 $("confirm-restart").onclick = () => $("restart-dialog").close("restart");
 function finish() {
   $("quiz").hidden = true; $("result").hidden = false;
+  const missed = answers.filter(({ selected, correct }) => selected !== correct);
   const [e, t, m] = score === 10 ? ["🏆","Mission Commander!","Flawless flight."]
     : score >= 8 ? ["🚀","Astronaut material!","Great orbit around the facts."]
     : score >= 5 ? ["🛰️","Solid satellite","You're on course — keep exploring."]
@@ -307,6 +327,31 @@ function finish() {
     : ["☄️","Crash landing","Every pilot starts somewhere."];
   $("emoji").textContent = e; $("final").textContent = `${score} / ${Q.length}`;
   $("title").textContent = t; $("msg").textContent = m;
+  const review = $("review");
+  if (missed.length === 0) {
+    const message = document.createElement("p");
+    message.textContent = "No missed answers — flawless flight!";
+    review.replaceChildren(message);
+  } else {
+    const heading = document.createElement("h2");
+    heading.textContent = "Missed answers";
+    const list = document.createElement("ol");
+    list.className = "missed-list";
+    for (const { question, selected, correct } of missed) {
+      const item = document.createElement("li");
+      const prompt = document.createElement("p");
+      prompt.className = "missed-question";
+      prompt.textContent = question;
+      const playerAnswer = document.createElement("p");
+      playerAnswer.textContent = `Your answer: ${selected}`;
+      const correctAnswer = document.createElement("p");
+      correctAnswer.textContent = `Correct answer: ${correct}`;
+      item.append(prompt, playerAnswer, correctAnswer);
+      list.append(item);
+    }
+    review.replaceChildren(heading, list);
+  }
+  $("title").focus();
 }
 start();
 </script>
