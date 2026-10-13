@@ -236,15 +236,20 @@ const Q = [
   ["Which planet spins on its side?", ["Uranus","Mars","Venus","Jupiter"], 0],
 ];
 const $ = id => document.getElementById(id);
-let i, score, locked;
+let questions, i, score, locked;
 
 function start() {
+  questions = Q.slice();
+  for (let n = questions.length - 1; n > 0; n--) {
+    const j = Math.floor(Math.random() * (n + 1));
+    [questions[n], questions[j]] = [questions[j], questions[n]];
+  }
   i = 0; score = 0;
   $("quiz").hidden = false; $("result").hidden = true;
   show();
 }
 function show() {
-  const [q, opts] = Q[i];
+  const [q, opts] = questions[i];
   locked = false;
   $("count").textContent = `Question ${i + 1} of ${Q.length}`;
   $("score").textContent = `Score: ${score}`;
@@ -264,7 +269,7 @@ function show() {
 function answer(n) {
   if (locked) return;
   locked = true;
-  const right = Q[i][2], btns = $("opts").children;
+  const right = questions[i][2], btns = $("opts").children;
   [...btns].forEach(b => b.disabled = true);
   btns[right].classList.add("correct");
   const fb = $("fb");
